@@ -1,3 +1,4 @@
+/* global fbq */
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
@@ -31,15 +32,18 @@ function WaitingPage() {
       }
     } else if (isCompleted) {
       setIsLoading(false);
-
+      if (typeof window !== 'undefined' && window.fbq) {
+        fbq('track', 'CompleteRegistration', {
+          content_name: 'form_submission_completed',
+          content_category: 'credit_form',
+        });
+      }
       const handlePopState = () => {
         window.history.replaceState(null, '', '/giris');
         navigate('/giris', { replace: true });
       };
-
       window.history.pushState(null, '', '/giris');
       window.history.pushState(null, '', '/giris');
-
       window.addEventListener('popstate', handlePopState);
       return () => window.removeEventListener('popstate', handlePopState);
     }
