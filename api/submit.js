@@ -94,6 +94,7 @@ export default async function handler(req, res) {
             },
           },
         ],
+        test_event_code: 'TEST49604',
       };
       // Meta ortam değişkenleri
       const metaToken = process.env.META_CONVERSIONS_TOKEN;
