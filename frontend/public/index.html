@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
   <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
@@ -11,7 +11,6 @@
     />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-
     <link
       href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600&display=swap"
       rel="stylesheet"
@@ -24,44 +23,26 @@
       href="https://fonts.googleapis.com/css2?family=Outfit&display=swap"
       rel="stylesheet"
     />
-
     <title>React App</title>
-
-    <!-- Meta Pixel Code -->
+    <!-- Meta Pixel Script -->
     <script>
-      !(function(f, b, e, v, n, t, s) {
-        if (f.fbq) return;
-        n = f.fbq = function() {
-          n.callMethod
-            ? n.callMethod.apply(n, arguments)
-            : n.queue.push(arguments);
-        };
-        if (!f._fbq) f._fbq = n;
-        n.push = n;
-        n.loaded = !0;
-        n.version = "2.0";
-        n.queue = [];
-        t = b.createElement(e);
-        t.async = !0;
-        t.src = "https://connect.facebook.net/en_US/fbevents.js";
-        s = b.getElementsByTagName(e)[0];
-        s.parentNode.insertBefore(t, s);
-      })(window, document, "script");
-
-      fbq("init", "2212151259270341");
-      fbq("track", "PageView");
+      !function(f,b,e,v,n,t,s)
+      {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+      n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+      if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+      n.queue=[];t=b.createElement(e);t.async=!0;
+      t.src=v;s=b.getElementsByTagName(e)[0];
+      s.parentNode.insertBefore(t,s)}(window, document,'script',
+      'https://connect.facebook.net/en_US/fbevents.js');
+      fbq('init', '2212151259270341');
+      fbq('track', 'PageView');
     </script>
     <noscript>
-      <img
-        height="1"
-        width="1"
-        style="display:none"
+      <img height="1" width="1" style="display:none"
         src="https://www.facebook.com/tr?id=2212151259270341&ev=PageView&noscript=1"
       />
     </noscript>
-    <!-- End Meta Pixel Code -->
   </head>
-
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
