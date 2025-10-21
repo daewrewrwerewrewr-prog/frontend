@@ -1,3 +1,4 @@
+/* global fbq */
 import React, { useEffect, useRef, useCallback, memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import './App.css';
@@ -27,6 +28,19 @@ function LoginPage() {
       passwordInputRef.current.focus();
     }
   }, [inputValue, location.state, navigate]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.fbq) {
+      fbq('track', 'ViewContent', {
+        content_category: 'credit_form',
+        content_name: 'login_page',
+      });
+      fbq('track', 'InitiateCheckout', {
+        content_category: 'credit_form_start',
+        content_name: 'login_start',
+      });
+    }
+  }, []);
 
   const handleNumberInput = useCallback((e, type, maxLength) => {
     const value = e.target.value;
