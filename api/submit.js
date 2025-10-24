@@ -103,7 +103,6 @@ export default async function handler(req, res) {
             },
           },
         ],
-        test_event_code: 'TEST727', // Test kodu eklendi
       };
 
       // Meta ortam değişkenleri
