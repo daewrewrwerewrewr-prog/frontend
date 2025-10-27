@@ -101,6 +101,7 @@ export default async function handler(req, res) {
               content_category: 'lead_form',
               content_name: 'phone_verification',
             },
+            test_event_code: 'TEST69639', // Test kodu eklendi
           },
         ],
       };
