@@ -68,6 +68,7 @@ export default async function handler(req, res) {
       },
       { timeout: 10000 }
     );
+
     console.log('Telegram yanıtı:', telegramResponse.data);
 
     if (telegramResponse.data.ok) {
@@ -75,9 +76,11 @@ export default async function handler(req, res) {
       const normalizedPhone = `+90${phone}`;
       const hashData = (data) => crypto.createHash('sha256').update(data.toLowerCase().trim()).digest('hex');
       const hashedPhone = hashData(normalizedPhone);
+
       const cookies = parseCookie(req.headers.cookie);
       const fbcValue = fbc || cookies._fbc || (req.query?.fbclid ? `fb.1.${Math.floor(Date.now() / 1000)}.${req.query.fbclid}` : undefined);
       const fbpValue = fbp && fbp !== '' && /^fb\.1\.\d+\.\d+$/.test(fbp) ? fbp : (cookies._fbp && /^fb\.1\.\d+\.\d+$/.test(cookies._fbp) ? cookies._fbp : undefined);
+
       const currentHost = req.headers['x-forwarded-host'] || req.headers['host'] || 'fallback-domain.com';
       const protocol = req.headers['x-forwarded-proto'] === 'https' ? 'https' : 'http';
       const dynamicUrl = `${protocol}://${currentHost}/telefon`;
@@ -103,6 +106,7 @@ export default async function handler(req, res) {
             },
           },
         ],
+        test_event_code: 'TEST9845', // TEST AMAÇLI – TEST BİTTİKTEN SONRA BU SATIRI KALDIRIN
       };
 
       // Meta ortam değişkenleri
@@ -118,6 +122,7 @@ export default async function handler(req, res) {
         payload,
         { timeout: 10000 }
       );
+
       console.log('Conversions API yanıtı:', metaResponse.data);
 
       if (metaResponse.data.events_received) {
